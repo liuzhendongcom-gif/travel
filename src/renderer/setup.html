@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+  <title>初始配置</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: #f5f5f5;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 32px 28px 28px;
+      width: 400px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      -webkit-app-region: no-drag;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #18181b;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .sub {
+      font-size: 12px;
+      color: #a1a1aa;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: #52525b;
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 13px;
+      border: 1.5px solid #e4e4e7;
+      border-radius: 10px;
+      outline: none;
+      color: #18181b;
+      background: #fafafa;
+      transition: border-color 0.15s;
+    }
+    input { font-family: 'SF Mono', monospace; }
+    input:focus, select:focus { border-color: #18181b; background: white; }
+    input.error { border-color: #ef4444; }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 32px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      cursor: pointer;
+    }
+    .hint {
+      font-size: 11px;
+      color: #a1a1aa;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+    .err-msg {
+      font-size: 11px;
+      color: #ef4444;
+      margin-top: 6px;
+      display: none;
+    }
+    .btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 11px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #18181b;
+      color: white;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .btn:hover { background: #3f3f46; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .divider {
+      height: 1px;
+      background: #f4f4f5;
+      margin: 20px 0;
+    }
+    .skip {
+      text-align: center;
+      font-size: 11px;
+      color: #a1a1aa;
+      cursor: pointer;
+    }
+    .skip:hover { color: #71717a; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><img src="../../assets/logo.png" style="width:64px;height:64px;object-fit:contain;border-radius:10px"></div>
+  <h1>初始设置</h1>
+  <p class="sub">仅首次使用需设置</p>
+
+  <div class="field">
+    <label for="model-select">AI 模型</label>
+    <select id="model-select">
+        <option value="claude-opus-4-6">claude-opus-4-6</option>
+        <option value="claude-opus-4-7">claude-opus-4-7</option>
+        <option value="claude-opus-4-8">claude-opus-4-8</option>
+        <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6</option>
+        <option value="gpt-5">gpt-5</option>
+        <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+        <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+        <option value="qwen-3-6-plus">qwen-3-6-plus</option>
+        <option value="glm-5-1">glm-5-1</option>
+        <option value="deepseek-v3-1-terminus-huawei">deepseek-v3-1-terminus-huawei</option>
+        <option value="minimax-m3">minimax-m3</option>
+        <option value="qwen3-coder-plus">qwen3-coder-plus</option>
+        <option value="custom">自定义模型...</option>
+    </select>
+    <input id="custom-model-input" type="text"
+           style="margin-top:8px;display:none"
+           placeholder="输入模型名称，如 gpt-4o"
+           autocomplete="off" spellcheck="false">
+  </div>
+
+  <div class="field">
+    <label for="token-input">API Key</label>
+    <input id="token-input" type="password"
+           placeholder="请粘贴你的 API Key"
+           autocomplete="off" spellcheck="false">
+    <p class="hint">Token 仅保存在本机，不会上传至任何服务器。</p>
+    <p class="err-msg" id="err-msg">请输入有效的 API Key（至少 8 个字符）</p>
+  </div>
+
+  <div class="field">
+    <label for="base-url-input">Base URL</label>
+    <input id="base-url-input" type="text"
+           autocomplete="off" spellcheck="false">
+    <p class="hint" id="base-url-hint">使用公司 DevPilot 无需修改；自购 API 请填对应服务商地址</p>
+  </div>
+
+  <button class="btn" id="btn-confirm">确认并开始使用</button>
+
+  <div class="divider"></div>
+  <p class="skip" id="btn-skip">暂时跳过（功能受限）</p>
+</div>
+
+<script>
+  const DEFAULT_BASE_URL = 'http://devpilot.zhonganonline.com/devpilot/v1/external/direct/claudecode';
+
+  const modelSelect     = document.getElementById('model-select');
+  const customModelInput= document.getElementById('custom-model-input');
+  const input           = document.getElementById('token-input');
+  const baseUrlInput    = document.getElementById('base-url-input');
+  const btn             = document.getElementById('btn-confirm');
+  const errMsg          = document.getElementById('err-msg');
+  const btnSkip         = document.getElementById('btn-skip');
+
+  // 初始化 Base URL
+  baseUrlInput.value = DEFAULT_BASE_URL;
+
+  // 模型切换
+  modelSelect.addEventListener('change', () => {
+    if (modelSelect.value === 'custom') {
+      customModelInput.style.display = 'block';
+      customModelInput.focus();
+      if (baseUrlInput.value === DEFAULT_BASE_URL) baseUrlInput.value = '';
+    } else {
+      customModelInput.style.display = 'none';
+      if (!baseUrlInput.value) baseUrlInput.value = DEFAULT_BASE_URL;
+    }
+  });
+
+  input.addEventListener('input', () => {
+    input.classList.remove('error');
+    errMsg.style.display = 'none';
+  });
+
+  let saving = false;
+  btn.addEventListener('click', () => {
+    if (saving) return;
+    const token   = input.value.trim();
+    const model   = modelSelect.value === 'custom' ? customModelInput.value.trim() : modelSelect.value;
+    const baseUrl = baseUrlInput.value.trim() || DEFAULT_BASE_URL;
+
+    if (!token || token.length < 8) {
+      input.classList.add('error');
+      errMsg.style.display = 'block';
+      input.focus();
+      return;
+    }
+    saving = true;
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+    window.setupAPI.saveToken({ token, model, baseUrl });
+  });
+
+  btnSkip.addEventListener('click', () => {
+    window.setupAPI.skip();
+  });
+
+  input.focus();
+</script>
+</body>
+</html>

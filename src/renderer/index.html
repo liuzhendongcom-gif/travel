@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>差旅报销助手</title>
+  <link rel="stylesheet" href="tw.css">
+  <style>
+    /* 顶部渐变背景：logo 蓝 → 应用浅灰，覆盖上半屏 */
+    body {
+      background: #EDEEF0;
+    }
+    #app {
+      background: linear-gradient(
+        to bottom,
+        #cce8ff 0%,
+        #EDEEF0 52%
+      );
+    }
+    /* 拖拽区 */
+    #drop-zone {
+      border: 1.5px dashed #d4d4d8;
+      background: #ffffff;
+      transition: border-color 0.15s, border-width 0.15s, background 0.15s;
+    }
+    #drop-zone:hover {
+      border: 2.5px dashed #33DD00;
+      background: #F6FDFF;
+    }
+    #drop-zone.drag-over {
+      border: 2.5px dashed #33DD00 !important;
+      background: #F6FDFF !important;
+    }
+    #drop-zone.drag-over #file-empty {
+      opacity: 0.4;
+    }
+    /* 空态下 hover 时 + 图标容器放大 10% */
+    #drop-zone:not(.done):not(.has-files):hover #file-empty .empty-icon {
+      transform: scale(1.1);
+    }
+    #file-empty .empty-icon {
+      transition: transform 0.18s ease;
+    }
+    /* 有文件（识别中或识别完成）时取消 hover 外框和底色效果 */
+    #drop-zone.has-files:hover,
+    #drop-zone.done:hover {
+      border: 1.5px dashed #d4d4d8;
+      background: #ffffff;
+    }
+
+    /* 右侧抽屉 —— 全屏高，紧贴右边，无圆角 */
+    #trip-drawer {
+      width: 0;
+      overflow: hidden;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      flex-shrink: 0;
+      background: #f4f4f5;
+      border-left: 1px solid #e4e4e7;
+    }
+    #trip-drawer.open {
+      width: 280px;
+    }
+    #trip-drawer-inner {
+      width: 280px;
+      background: #f4f4f5;
+    }
+
+    /* 抽屉标题栏 */
+    #drawer-header {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid #e4e4e7;
+    }
+    #drawer-header span {
+      font-size: 12px;
+      font-weight: 600;
+      color: #71717a;
+      letter-spacing: 0;
+    }
+    #btn-close-drawer {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #e4e4e7;
+      border: none;
+      color: #71717a;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    #btn-close-drawer:hover { background: #d4d4d8; }
+
+    /* 行程卡片 */
+    .trip-card {
+      background: #ffffff;
+      border: 1px solid #e4e4e7;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .trip-card + .trip-card { margin-top: 8px; }
+    .trip-card-unmatched { border: 1px solid #e4e4e7; opacity: 0.7; }
+
+    .trip-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #18181b;
+      line-height: 1.4;
+    }
+    .trip-card-purpose {
+      font-size: 11px;
+      color: #71717a;
+    }
+    .trip-card-days {
+      font-size: 11px;
+      color: #71717a;
+    }
+    .trip-card-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px 12px;
+      font-size: 11px;
+      color: #71717a;
+      margin-top: 2px;
+    }
+    .trip-sum-item { white-space: nowrap; }
+    .trip-sum-num { color: #16a34a; font-weight: 600; }
+
+    .trip-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .btn-copy {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: transparent;
+      border: 1px solid #d4d4d8;
+      color: #52525b;
+    }
+    .btn-copy:hover { background: #f4f4f5; border-color: #a1a1aa; }
+    .btn-view {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #18181b;
+      border: 1px solid #18181b;
+      color: #ffffff;
+    }
+    .btn-view:hover { background: #3f3f46; border-color: #3f3f46; }
+
+    /* 复制成功动效 */
+    .btn-copy.copied {
+      border-color: #16a34a;
+      color: #16a34a;
+    }
+
+    /* 抽屉滚动区 */
+    #trip-drawer-scroll {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      padding: 8px 10px 0 10px;
+    }
+    #trip-drawer-scroll::-webkit-scrollbar { width: 3px; }
+    #trip-drawer-scroll::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 2px; }
+
+    /* 抽屉底部路径 */
+    #drawer-footer {
+      padding: 8px 10px 10px;
+      border-top: 1px solid #e4e4e7;
+      flex-shrink: 0;
+    }
+    #drawer-footer a, #drawer-footer span.open-link {
+      font-size: 10px;
+      color: #a1a1aa;
+      cursor: pointer;
+      word-break: break-all;
+      display: block;
+      line-height: 1.6;
+      text-decoration: none;
+    }
+    #drawer-footer span.open-link:hover { color: #52525b; }
+
+    /* 设置页下拉菜单：隐藏系统箭头，添加自定义向下箭头 */
+    .settings-select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 2rem;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+  </style>
+</head>
+<body class="h-full bg-zinc-100 antialiased overflow-hidden select-none">
+<div id="app" class="flex flex-col h-screen" style="-webkit-app-region:drag">
+
+  <!-- ══ 主内容区 ══ -->
+  <div id="main-content" class="flex flex-col flex-1 overflow-hidden">
+
+  <!-- 标题栏：居中 logo + 标题 -->
+  <div class="h-11 shrink-0 flex items-center justify-center gap-2 relative">
+    <img src="../../assets/logo.png" class="w-6 h-6 rounded-md" style="object-fit:contain">
+    <span class="text-[13px] font-semibold text-zinc-800 tracking-tight">差旅报销助手</span>
+    <span class="text-[11px] text-zinc-400">· AI 自动识别整理票据</span>
+
+    <!-- 右上角设置 -->
+    <div class="absolute right-3 top-1/2 -translate-y-1/2" style="-webkit-app-region:no-drag">
+      <button id="btn-settings"
+              class="w-8 h-8 rounded-lg bg-white/70 hover:bg-white border border-zinc-200 shadow-sm
+                     flex items-center justify-center cursor-pointer transition-colors"
+              aria-label="设置">
+        <svg class="w-4 h-4 text-zinc-600" viewBox="0 0 24 24" fill="none">
+          <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.99.604 2.255.04 2.572-1.065Z" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- 外层横向：主体 + 右侧抽屉 -->
+  <div class="flex flex-1 overflow-hidden gap-0" style="-webkit-app-region:no-drag">
+
+    <!-- 主内容区 -->
+    <div class="flex flex-col flex-1 overflow-hidden px-3 pb-3 gap-3 min-w-0">
+
+      <!-- ══ 上部大框：拖拽区 + 文件列表合一 ══ -->
+      <div id="drop-zone"
+           class="flex-1 min-h-0 bg-white rounded-[13px]
+                  flex flex-col relative overflow-hidden"
+           tabindex="0">
+        <input id="file-input" type="file" multiple
+               accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.txt" class="hidden">
+
+        <!-- Toast（悬浮在框内居中） -->
+        <div id="toast"
+             class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                    bg-zinc-800/90 text-white text-[12px] font-medium
+                    px-4 py-2 rounded-full shadow-lg
+                    opacity-0 pointer-events-none
+                    transition-all duration-200 whitespace-nowrap z-20">
+        </div>
+
+        <!-- 有文件时的标题栏（仅排序） -->
+        <div id="list-header"
+             class="hidden px-4 pt-3 pb-2 shrink-0 flex items-center gap-2 border-b border-zinc-100">
+          <span class="text-[12px] font-semibold text-zinc-500 mr-auto">你添加的文件：</span>
+          <select id="sort-select"
+                  class="text-[10px] text-zinc-500 bg-zinc-50 border border-zinc-200 rounded-md
+                         px-1.5 py-0.5 cursor-pointer outline-none hover:border-zinc-300 transition-colors">
+            <option value="added">排序</option>
+            <option value="type">按种类</option>
+            <option value="date">按时间</option>
+          </select>
+        </div>
+
+        <!-- 文件列表（有文件时显示） -->
+        <ul id="file-list" class="flex-1 overflow-y-auto px-2 py-1.5 space-y-0.5 min-h-0"></ul>
+
+        <!-- 列表底部工具栏（吸底，有文件时显示） -->
+        <div id="list-add-btn"
+             class="hidden shrink-0 flex items-center gap-3 px-4 py-2 border-t border-zinc-100"
+             style="-webkit-app-region:no-drag">
+          <!-- 绿色 + 添加 -->
+          <button id="btn-add-file"
+                  class="flex items-center gap-1.5 cursor-pointer border-none bg-transparent p-0
+                         hover:opacity-75 transition-opacity">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center"
+                 style="background:#e8fbe8">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" style="color:#33DD00">
+                <path d="M12 5V19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="text-[12px] font-semibold" style="color:#33DD00">添加</span>
+          </button>
+          <!-- 分隔 -->
+          <div class="w-px h-3.5 bg-zinc-200 mx-3"></div>
+          <!-- 灰色 - 清空 -->
+          <button id="btn-clear"
+                  class="flex items-center gap-1.5 cursor-pointer border-none bg-transparent p-0
+                         hover:opacity-70 transition-opacity">
+            <div class="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-zinc-400" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="text-[12px] font-semibold text-zinc-400">清空</span>
+          </button>
+        </div>
+
+        <!-- 空态：拖入提示（无文件时显示） -->
+        <div id="file-empty"
+             class="absolute inset-0 flex flex-col items-center justify-center gap-4 cursor-pointer">
+          <div class="empty-icon w-16 h-16 rounded-[13px] bg-zinc-100 flex items-center justify-center">
+            <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" style="color:#5ecb9c">
+              <path d="M12 5V19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="text-center">
+            <p class="text-[14px] font-semibold text-zinc-700 leading-tight">拖入票据文件或点击选择</p>
+            <p class="text-[11px] text-zinc-400 mt-1">支持 JPG · PNG · PDF · DOCX · TXT</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══ 下部：识别进度横排 ══ -->
+      <div class="shrink-0 bg-white rounded-[13px] border border-zinc-200/80 px-4 py-3 flex items-center gap-6">
+        <!-- 已完成 + 进度条 -->
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+          <span class="text-[12px] font-semibold text-zinc-500 shrink-0">识别进度</span>
+          <div class="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+            <div id="progress-bar"
+                 class="h-full rounded-full transition-all duration-500 ease-out"
+                 style="width:0%; background:#18181b"></div>
+          </div>
+          <span class="text-[11px] tabular-nums text-zinc-400 shrink-0">
+            <span id="progress-num">0</span><span id="progress-denom">/0</span>
+          </span>
+        </div>
+        <!-- 分隔 -->
+        <div class="w-px h-5 bg-zinc-200 shrink-0"></div>
+        <!-- 三项统计 -->
+        <div class="flex items-center gap-4 shrink-0">
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+            <span class="text-[11px] text-zinc-500">识别正确</span>
+            <span id="cnt-ok" class="text-[11px] font-bold tabular-nums text-zinc-800 ml-1">0</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+            <span class="text-[11px] text-zinc-500">置信度低</span>
+            <span id="cnt-warn" class="text-[11px] font-bold tabular-nums text-zinc-800 ml-1">0</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
+            <span class="text-[11px] text-zinc-500">识别失败</span>
+            <span id="cnt-err" class="text-[11px] font-bold tabular-nums text-zinc-800 ml-1">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 底部按钮 ══ -->
+      <div class="shrink-0 flex gap-2.5 pb-0.5">
+        <button id="btn-reprocess"
+                class="hidden py-2.5 px-5 rounded-xl text-[13px] font-semibold text-zinc-600
+                       bg-white hover:bg-zinc-50 active:scale-[0.98]
+                       disabled:opacity-30 disabled:cursor-not-allowed
+                       transition-all duration-150 cursor-pointer border border-zinc-300 shrink-0">
+          再次识别
+        </button>
+        <button id="btn-export"
+                class="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white
+                       bg-zinc-900 hover:bg-zinc-700 active:scale-[0.98]
+                       disabled:opacity-30 disabled:cursor-not-allowed
+                       transition-all duration-150 cursor-pointer border-none">
+          生成报销包
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ══ 右侧行程抽屉 ══ -->
+    <div id="trip-drawer">
+      <div id="trip-drawer-inner" class="h-full flex flex-col">
+        <!-- 标题栏 -->
+        <div id="drawer-header">
+          <span>行程报销卡</span>
+          <button id="btn-close-drawer">✕</button>
+        </div>
+        <!-- 卡片滚动区 -->
+        <div id="trip-drawer-scroll">
+          <div id="trip-cards"></div>
+        </div>
+        <!-- 底部路径 -->
+        <div id="drawer-footer"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ 设置页面（全屏） ══ -->
+<div id="settings-page"
+     class="absolute inset-0 bg-white z-40 flex flex-col hidden"
+     style="-webkit-app-region:no-drag">
+  <!-- 顶部栏 -->
+  <div class="h-11 shrink-0 flex items-center justify-between px-4 border-b border-zinc-100">
+    <span class="w-20"></span>
+    <span class="text-[13px] font-semibold text-zinc-800">设置</span>
+    <button id="btn-settings-back"
+            class="text-[13px] text-zinc-500 hover:text-zinc-800 cursor-pointer
+                   bg-zinc-50 hover:bg-zinc-100 border border-zinc-200
+                   px-3 py-1 rounded-lg transition-colors w-20
+                   flex items-center justify-center gap-1">
+      <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none">
+        <path d="M15 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      返回
+    </button>
+  </div>
+
+  <!-- 表单区 -->
+  <div class="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5">
+
+    <!-- API Key 缺失提示（按需显示） -->
+    <div id="settings-setup-hint"
+         class="hidden rounded-xl bg-amber-50 border border-amber-200 px-4 py-3
+                text-[12px] text-amber-700 leading-relaxed">
+    </div>
+
+    <!-- 模型选择 -->
+    <div>
+      <div class="text-[11px] font-medium text-zinc-600 mb-2">AI 模型</div>
+      <select id="settings-model"
+              class="w-full px-3 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50
+                     text-[13px] text-zinc-800 outline-none focus:bg-white focus:border-zinc-400
+                     cursor-pointer transition-colors settings-select">
+        <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+        <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+        <option value="qwen-3-6-plus">qwen-3-6-plus</option>
+        <option value="glm-5-1">glm-5-1</option>
+        <option value="claude-opus-4-6">claude-opus-4-6</option>
+        <option value="claude-opus-4-7">claude-opus-4-7</option>
+        <option value="claude-opus-4-8">claude-opus-4-8</option>
+        <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+        <option value="gpt-5">gpt-5</option>
+        <option value="deepseek-v3-1-terminus-huawei">deepseek-v3-1-terminus-huawei</option>
+        <option value="minimax-m3">minimax-m3</option>
+        <option value="qwen3-coder-plus">qwen3-coder-plus</option>
+        <option value="custom">自定义模型...</option>
+      </select>
+      <input id="settings-custom-model" type="text"
+             class="mt-2 w-full px-3 py-2 rounded-xl border border-zinc-200 bg-zinc-50
+                    text-[13px] text-zinc-800 outline-none focus:bg-white focus:border-zinc-400 hidden"
+             placeholder="输入模型名称，如 gpt-4o" autocomplete="off" spellcheck="false">
+    </div>
+
+    <!-- API Key -->
+    <div>
+      <div class="text-[11px] font-medium text-zinc-600 mb-2">API Key</div>
+      <input id="settings-api-key" type="text"
+             class="w-full px-3 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50
+                    text-[13px] text-zinc-800 outline-none focus:bg-white focus:border-zinc-400"
+             placeholder="请输入你的 API Key" autocomplete="off" spellcheck="false">
+    </div>
+
+    <!-- Base URL -->
+    <div>
+      <div class="text-[11px] font-medium text-zinc-600 mb-2">Base URL</div>
+      <input id="settings-base-url" type="text"
+             class="w-full px-3 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50
+                    text-[13px] text-zinc-800 outline-none focus:bg-white focus:border-zinc-400"
+             autocomplete="off" spellcheck="false">
+      <p class="text-[10px] text-zinc-400 mt-1.5">使用公司 DevPilot 无需修改；自购 API 请填对应服务商地址</p>
+    </div>
+
+    <!-- 识别并发数 -->
+    <div>
+      <div class="text-[11px] font-medium text-zinc-600 mb-2">识别并发数</div>
+      <div class="flex items-center gap-3">
+        <input id="settings-concurrency" type="range" min="1" max="5" value="1" step="1"
+               class="flex-1 h-2 rounded-full bg-zinc-200 appearance-none cursor-pointer
+                      [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5
+                      [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full
+                      [&::-webkit-slider-thumb]:bg-zinc-900 [&::-webkit-slider-thumb]:cursor-pointer
+                      [&::-webkit-slider-thumb]:shadow-sm">
+        <span id="settings-concurrency-val" class="text-[13px] font-semibold text-zinc-800 w-5 text-center">1</span>
+      </div>
+      <p class="text-[10px] text-zinc-400 mt-1.5">同时处理 1-5 个文件，建议 2-3</p>
+    </div>
+
+    <!-- OCR 引擎 -->
+    <div>
+      <div class="text-[11px] font-medium text-zinc-600 mb-2">OCR 识别引擎</div>
+      <select id="settings-ocr-engine"
+              class="w-full px-3 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50
+                     text-[13px] text-zinc-800 outline-none focus:bg-white focus:border-zinc-400
+                     cursor-pointer transition-colors settings-select">
+        <option value="vision">macOS 系统 OCR（推荐）</option>
+      </select>
+      <p class="text-[10px] text-zinc-400 mt-1.5">桌面版使用 macOS Vision OCR，精度高、速度快</p>
+    </div>
+
+    <!-- 调试日志 -->
+    <div>
+      <div class="text-[11px] font-medium text-zinc-600 mb-2">调试日志</div>
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[13px] text-zinc-600">日志文件大小</span>
+        <span id="settings-log-size" class="text-[13px] font-semibold text-zinc-800">计算中...</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-[13px] text-zinc-600">启用调试日志</span>
+        <input id="settings-debug-log" type="checkbox"
+               class="w-5 h-5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 cursor-pointer">
+      </div>
+      <button id="btn-clear-log"
+              class="mt-3 py-1.5 px-4 rounded-lg text-[11px] text-zinc-400
+                     hover:text-zinc-500 hover:bg-zinc-100 transition-colors cursor-pointer">
+        清除日志
+      </button>
+    </div>
+
+    <!-- 重复票据检测 -->
+    <div>
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-[11px] font-medium text-zinc-600">自动检测重复票据</div>
+          <p class="text-[10px] text-zinc-400 mt-0.5">添加文件时自动检测并跳过重复票据</p>
+        </div>
+        <input id="settings-dedup-check" type="checkbox"
+               class="w-5 h-5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 cursor-pointer shrink-0">
+      </div>
+    </div>
+
+    <!-- 外币自动换算 -->
+    <div>
+      <div class="text-[11px] font-medium text-zinc-600 mb-2">外币换算目标货币</div>
+      <select id="settings-fx-target"
+              class="w-full px-3 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50
+                     text-[13px] text-zinc-800 outline-none focus:bg-white focus:border-zinc-400
+                     cursor-pointer transition-colors settings-select">
+        <option value="CNY">人民币（CNY）</option>
+        <option value="HKD">港币（HKD）</option>
+      </select>
+      <p class="text-[10px] text-zinc-400 mt-1.5">生成报销包时自动查询汇率，将外币折算为所选货币</p>
+    </div>
+
+  </div>
+
+  <!-- 底部保存按钮 -->
+  <div class="shrink-0 px-6 pb-6 pt-2">
+    <div id="settings-status" class="text-[11px] text-zinc-400 mb-3 text-center">加载中…</div>
+    <button id="btn-settings-save"
+            class="w-full py-2.5 rounded-xl text-[13px] font-semibold text-white
+                   bg-zinc-900 hover:bg-zinc-700 active:scale-[0.98]
+                   transition-all duration-150 cursor-pointer border-none">
+      保存
+    </button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
