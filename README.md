@@ -10,16 +10,13 @@
 1. 打开 .dmg 文件
 2. 将"差旅报销助手1.3"图标拖入右侧 Applications（应用程序）文件夹
 3. 双击启动
-
 【提示："已损坏，无法打开"？】
 这是 macOS Gatekeeper 的安全拦截，不是真的损坏。一键修复：
 → 回到 .dmg 窗口，双击"一键修复Mac安全拦截.command"，按提示操作即可。
 
 【首次启动配置】
-- 应用会弹出配置窗口
-- 模型和 Base URL 已预填公司默认值，一般无需修改
-- 如需个人 API Key：登录 https://devpilot.zhongan.com/profile → 左侧 AK → 复制粘贴到 API Key 输入框
-- 公司内网通常不需要填写 API Key，可直接点击"确认并开始使用"
+- 个人 API Key请登录 https://devpilot.zhongan.com/profile → 左侧 AK → 复制粘贴到 API Key 输入框
+- 模型和 Base URL 已预填公司默认值，一般无需修改,
 
 【基本使用流程】
 1. 将票据文件（JPG · PNG · WEBP · PDF · DOCX · TXT）拖入应用窗口，AI 自动识别
@@ -61,10 +58,8 @@ A：点击应用右上角齿轮图标进入设置页修改。
 点击"更多信息" → 点击"仍要运行"即可正常安装。
 
 【首次启动配置】
-- 应用会弹出配置窗口
 - 模型和 Base URL 已预填公司默认值，一般无需修改
 - 如需个人 API Key：登录 https://devpilot.zhongan.com/profile → 左侧 AK → 复制粘贴到 API Key 输入框
-- 公司内网通常不需要填写 API Key，可直接点击"确认并开始使用"
 
 【基本使用流程】
 1. 将票据文件（JPG · PNG · WEBP · PDF · DOCX · TXT）拖入应用窗口，AI 自动识别
